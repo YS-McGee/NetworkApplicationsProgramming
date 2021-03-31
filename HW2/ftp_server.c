@@ -44,34 +44,17 @@ int main() {
     sockaddr.sin_port = htons(9090);            // host to network short: Big endian
     sockaddr.sin_addr.s_addr = INADDR_ANY;      // * INADDR_ANY means socket will bound to all local interface
     
-    int conn = connect(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
+    int conn = bind(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
     /**
-     * ! int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-     * * https://man7.org/linux/man-pages/man2/connect.2.html
-     *
-     * The connect() system call connects the socket referred to by the
-       file descriptor sockfd to the address specified by addr. The
-       addrlen argument specifies the size of addr.
-     *
-     * @param addr:
-     * struct sockaddr_in {
-     *   __kernel_sa_family_t	sin_family;	// Address Family
-     *   __be16		sin_port;	            // Port number
-     *   struct in_addr	sin_addr;	        // Internet address
-     * };
-     * * sockaddr vs. sockaddr_in: https://stackoverflow.com/questions/21099041/why-do-we-cast-sockaddr-in-to-sockaddr-when-calling-bind
+     * ! int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+     * When a socket is created with socket(2), it exists in a name
+       space (address family) but has no address assigned to it.  bind()
+       assigns the address specified by addr to the socket referred to
+       by the file descriptor sockfd.  addrlen specifies the size, in
+       bytes, of the address structure pointed to by addr.
+       Traditionally, this operation is called “assigning a name to a
+       socket”.
      * 
-     */
-
-    // printf("%d\n", conn);
-
-    char c[1024];         // Buffer
-    recv(fd, &c, sizeof(c), 0);
-    /**
-     * ! ssize_t recv(int sockfd, void *buf, size_t len, int flags);
-     * The recv(), recvfrom(), and recvmsg() calls are used to receive
-       messages from a socket. 
-     */
-
+     */ 
     return 0;
 }
