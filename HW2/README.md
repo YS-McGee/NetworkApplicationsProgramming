@@ -1,7 +1,21 @@
 ### FTP program with data compression
 ---
 ## What is it about?
-> TBC
+- This service basically provides file transferring for server and client side.
+- No install is needed.
+- The use of fwritef and fprintf drives me crazy.
+- The hardest part is not sending, but encoding.
+
+- Even though Huffman encoding is utilized, the disadvantage side is that I havn't found a way to write
+	"bits" within each handle.
+- For example, 'A' gets encoded into 41 in hex, but we need to encode it back to 'A' to ensure that we are actually 
+	"compressing" a file, instead of a bomb.
+- Server functions: socket(), bind(), listen() and wait...., accept(), read()
+- Client functions: socket(), connect(), fread(), ...
+
+My github page: https://github.com/YS-McGee/NetworkApplicationsProgramming
+(It's private)
+
 
 ---
 ## Motivation:
