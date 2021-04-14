@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <unistd.h>
 
 /**
  * * Important
@@ -16,7 +17,86 @@
  * @param myParam This param does bla bla bla
  */
 
+void compress(FILE *fp, FILE *huff_fp) {
+
+    int k, h = 0, i, a = 0, base = 1;
+    int c;
+    int b[8], bit;
+    char hex[2];
+    
+    while( (c = fgetc(fp) ) != EOF) {
+        // for(k = 1 << 7; k > 0; k = k / 2, ++h) {
+        //     (c & k) ? (b[h] = 1) : (b[h] = 0);
+        // }
+        // h = 0;
+        sprintf(hex, "%2x", c);
+        for(i = 1; i >= 0; --i) {
+            if(hex[i] >= '0' && hex[i] <= '9') {
+                a += (hex[i] - 48) * base;
+                base *= 16;
+            }
+            else if(hex[i] >= 'A' && hex[i] <= 'F') {
+                a += (hex[i] - 55 ) * base;
+                base *= 16;
+            }
+            else if(hex[i] >= 'a' && hex[i] <= 'f') {
+                a += (hex[i] -87) * base;
+                base *= 16;
+            }
+        }
+        fprintf(huff_fp, "%c", a);
+        base = 1;
+        a = 0;
+        //printf("%c ", c);
+        //puts(hex);
+        //fwrite(hex, sizeof(char), 2, huff_fp);
+    }
+    //printf("\n");
+}
+
+void decompress(FILE *fp, FILE *new_fp) {
+
+    int count, a = 0, i, base = 1, num;
+    char c[1];
+
+    // while(1) {
+    //     if( ( count = fread(&c, sizeof(char), 2, fp) ) == 0) {
+    //         printf("\n");
+    //         return;
+    //     }
+    //     for(i = 1; i >= 0; --i) {
+    //         if(c[i] >= '0' && c[i] <= '9') {
+    //             a += (c[i] - 48) * base;
+    //             base *= 16;
+    //         }
+    //         else if(c[i] >= 'A' && c[i] <= 'F') {
+    //             a += (c[i] - 55 ) * base;
+    //             base *= 16;
+    //         }
+    //         else if(c[i] >= 'a' && c[i] <= 'f') {
+    //             a += (c[i] -87) * base;
+    //             base *= 16;
+    //         }
+    //     }
+    //     fprintf(new_fp, "%c", a);
+    //     base = 1;
+    //     a = 0;
+    // }
+    while( (num = fgetc(fp) ) != EOF) {
+        fprintf(new_fp, "%c", num);
+    }
+}
+
 int main() {
+
+    // sudo apt install figlet toilet
+    // print ASCII text banner on terminal
+    int num;
+    FILE *f = fopen("banner.txt", "r");
+    while( (num = fgetc(f) ) != EOF) {
+      sleep(0.4);
+      printf("%c", num);
+    }
 
     // Create Socket
     int socketfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -48,7 +128,8 @@ int main() {
     * case protocol can be specified as 0.
     */
     
-    char *ip = "192.168.32.137";
+    char *ip = "127.0.0.1";
+    //char *ip = "192.168.32.137";
 
     struct sockaddr_in server_addr, new_addr;
     socklen_t addr_size;
@@ -75,10 +156,11 @@ int main() {
        socket”.
      * 
      */ 
-
+    
+    int u;
     b = listen(socketfd, 5);
     if(b == 0) {
-      printf("[+]Listening......\n");
+      printf("[+]Listening....\n");
     } else {
       perror("[-]Listening Error\n");
       return -1;
@@ -115,11 +197,11 @@ int main() {
        write(2).
      */ 
 
-    FILE *fp;
-    char *filename = "file1";
-    fp = fopen(filename, "w+");
-    if (fp == NULL) {
-      perror("[-]File Creation Error\n");
+    FILE *huff_fp, *new_fp;
+
+    huff_fp = fopen("compressed", "w");
+    if (huff_fp == NULL) {
+      perror("[-]File Creation Error(huff_fp)\n");
       return -1;
     }
 
@@ -143,12 +225,34 @@ int main() {
       if(num_byte == 0)
         break;
       printf("[+]read %d bytes, ", num_byte);
-      num_byte = fwrite(buffer, sizeof(char), num_byte, fp);
-      printf("fwrite %d bytesn.\n", num_byte);
+      num_byte = fwrite(buffer, sizeof(char), num_byte, huff_fp);
+      printf("[+]fwrite %d bytes.\n", num_byte);
     }
+    /**
+     * 1. Uses read() to load the contents in new_sock into buffer, with each time maximum sizeof(buffer)Bytes
+     * 2. if no bytes reveived, end loop.
+     * 3. print current bytes.
+     * 4. use fwrite() to load buffer into fp, each time sizeof(char)bytes, of num_bytes times.
+     * 5. If too many times, useless data would be written, that why we use the return value of read().
+     * 6. print current fwrite().
+     */
+    fclose(huff_fp);
+    huff_fp = fopen("compressed", "r");
+    if (huff_fp == NULL) {
+      perror("[-]File Creation Error(huff_fp)\n");
+      return -1;
+    }
+    new_fp = fopen("decomp", "w");
+    if (new_fp == NULL) {
+      perror("[-]File Creation Error\n");
+      return -1;
+    }
+    decompress(huff_fp, new_fp);
+
     printf("\n[+]Data Written Successful !!\n");
     
-    fclose(fp);
+    fclose(huff_fp);
+    fclose(new_fp);
     close(new_sock);
 
     return 0;
