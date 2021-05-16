@@ -44,10 +44,11 @@ int main(int argc , char *argv[])
         exit(EXIT_FAILURE);  
     }  
      
-    //set master socket to allow multiple connections , 
-    //this is just a good habit, it will work without this 
-    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, 
-          sizeof(opt)) < 0 )  
+    /**
+     * * int setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len);
+     * Set master_socket to allow multiple connections.
+     **/ 
+    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 )  
     {  
         perror("setsockopt");  
         exit(EXIT_FAILURE);  
@@ -63,15 +64,15 @@ int main(int argc , char *argv[])
     {  
         perror("bind failed");  
         exit(EXIT_FAILURE);  
-    }  
-    printf("Listener on port %d \n", PORT);  
+    }    
          
     //try to specify maximum of 3 pending connections for the master socket 
     if (listen(master_socket, 3) < 0)  
     {  
-        perror("listen");  
+        perror("listen failed");  
         exit(EXIT_FAILURE);  
-    }  
+    }
+    printf("Listener on port %d \n", PORT);
          
     //accept the incoming connection 
     addrlen = sizeof(address);  
