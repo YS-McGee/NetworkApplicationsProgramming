@@ -1,6 +1,5 @@
 CC=gcc
 
-all:
-	$(CC) -o test test.c
-	$(CC) -o server_threads server_threads.c
-	$(CC) -o client_threads client_threads.c 
+compile:
+	gcc -Wall -g3 -fsanitize=address -pthread server_threads.c -o server_threads
+	gcc -Wall -g3 -fsanitize=address -pthread client_threads.c -o client_threads
