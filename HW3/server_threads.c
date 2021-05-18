@@ -1,3 +1,12 @@
+/**
+ * <Better Comments>
+ * * IMPORTANT
+ * ! MMMM
+ * ? _Atomic
+ * ? static
+ * TODO: ttt
+ * @param myParm this is parm
+ */
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -26,13 +35,25 @@ typedef struct{
 
 client_t *clients[MAX_CLIENTS];
 
-pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+/**
+ * ! 靜態初始化
+ * link: https://blog.xuite.net/mb1016.flying/linux/26293042
+ */
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;			
 
+/**
+ * ! 7/7 
+ * 
+ */
 void str_overwrite_stdout() {
     printf("\r%s", "> ");
     fflush(stdout);
 }
 
+/**
+ * ! 6/7 
+ * 
+ */
 void str_trim_lf (char* arr, int length) {
   int i;
   for (i = 0; i < length; i++) { // trim \n
@@ -43,6 +64,10 @@ void str_trim_lf (char* arr, int length) {
   }
 }
 
+/**
+ * ! 5/7
+ * 
+ */
 void print_client_addr(struct sockaddr_in addr){
     printf("%d.%d.%d.%d",
         addr.sin_addr.s_addr & 0xff,
@@ -51,11 +76,15 @@ void print_client_addr(struct sockaddr_in addr){
         (addr.sin_addr.s_addr & 0xff000000) >> 24);
 }
 
-/* Add clients to queue */
+/**
+ * ! 4/7 Add clients to queue
+ * 
+ */
 void queue_add(client_t *cl){
 	pthread_mutex_lock(&clients_mutex);
 
 	for(int i=0; i < MAX_CLIENTS; ++i){
+		// array 最小為空的 index
 		if(!clients[i]){
 			clients[i] = cl;
 			break;
@@ -65,7 +94,10 @@ void queue_add(client_t *cl){
 	pthread_mutex_unlock(&clients_mutex);
 }
 
-/* Remove clients to queue */
+/**
+ * ! 3/7 Remove clients to queue
+ * 
+ */
 void queue_remove(int uid){
 	pthread_mutex_lock(&clients_mutex);
 
@@ -81,7 +113,10 @@ void queue_remove(int uid){
 	pthread_mutex_unlock(&clients_mutex);
 }
 
-/* Send message to all clients except sender */
+/**
+ * ! 2/7 Send message to all clients except sender
+ * 
+ */
 void send_message(char *s, int uid){
 	pthread_mutex_lock(&clients_mutex);
 
@@ -99,7 +134,10 @@ void send_message(char *s, int uid){
 	pthread_mutex_unlock(&clients_mutex);
 }
 
-/* Handle all communication with the client */
+/**
+ * ! 1/7 Handle all communication with the client
+ * 
+ */
 void *handle_client(void *arg){
 	char buff_out[BUFFER_SZ];
 	char name[32];
@@ -108,7 +146,7 @@ void *handle_client(void *arg){
 	cli_count++;
 	client_t *cli = (client_t *)arg;
 
-	// Name
+	// Name Validation
 	if(recv(cli->sockfd, name, 32, 0) <= 0 || strlen(name) <  2 || strlen(name) >= 32-1){
 		printf("Didn't enter the name.\n");
 		leave_flag = 1;
@@ -147,26 +185,18 @@ void *handle_client(void *arg){
 		bzero(buff_out, BUFFER_SZ);
 	}
 
-  /* Delete client from queue and yield thread */
+  	/* Delete client from queue and yield thread */
 	close(cli->sockfd);
-  queue_remove(cli->uid);
-  free(cli);
-  cli_count--;
-  pthread_detach(pthread_self());
+  	queue_remove(cli->uid);
+  	free(cli);
+  	cli_count--;
+  	pthread_detach(pthread_self());
 
 	return NULL;
 }
 
-/**
- * <Better Comments>
- * * IMPORTANT
- * ! DEEEE
- * ? Q
- * TODO: here
- * @param myParm this is parm
- */
-
 int main(int argc, char **argv){
+
 	if(argc != 2){
 		printf("Usage: %s <port>\n", argv[0]);
 		return EXIT_FAILURE;
@@ -230,6 +260,8 @@ int main(int argc, char **argv){
 		/* Check if max clients is reached */
 		if( ( cli_count + 1 ) == MAX_CLIENTS){
 			printf("Max clients reached. Rejected: ");
+			char buff_out[] = "Max clients reached. Rejected: ";
+			send(listenfd, buff_out, sizeof(buff_out), 0);
 			print_client_addr(cli_addr);
 			printf(":%d\n", cli_addr.sin_port);
 			close(connfd);
