@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <signal.h>
 
-#define MAX_CLIENTS 100
+#define MAX_CLIENTS 4	// less than this number
 #define BUFFER_SZ 2048
 
 static _Atomic unsigned int cli_count = 0;
@@ -157,6 +157,15 @@ void *handle_client(void *arg){
 	return NULL;
 }
 
+/**
+ * <Better Comments>
+ * * IMPORTANT
+ * ! DEEEE
+ * ? Q
+ * TODO: here
+ * @param myParm this is parm
+ */
+
 int main(int argc, char **argv){
 	if(argc != 2){
 		printf("Usage: %s <port>\n", argv[0]);
@@ -178,11 +187,26 @@ int main(int argc, char **argv){
   	serv_addr.sin_port = htons(port);
 
   	/* Ignore pipe signals */
+	/**
+	 * ! void (*signal(int sig, void (*func)(int)))(int)
+	 * link: https://www.tutorialspoint.com/c_standard_library/c_function_signal.htm
+	 * 
+	 *   當服務器close一個連線時，若client端接著發資料。根據TCP協議的規定，會收到一個RST響應，
+	 * client再往這個伺服器傳送資料時，系統會發出一個SIGPIPE訊號給程序，告訴程序這個連線已經斷開了，不要再寫了。
+	 * 	　根據訊號的預設處理規則SIGPIPE訊號的預設執行動作是terminate(終止、退出),所以client會退出。
+	 * 若不想客戶端退出可以把SIGPIPE設為SIG_IGN
+	 * link:　https://codertw.com/%E7%A8%8B%E5%BC%8F%E8%AA%9E%E8%A8%80/430366/
+	 */
 	signal(SIGPIPE, SIG_IGN);
 
+	/**
+	 * ! int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+	 * set to reuse port | addr
+	 * option = 1 -> enabled
+	 */
 	if(setsockopt(listenfd, SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR),(char*)&option,sizeof(option)) < 0){
 		perror("ERROR: setsockopt failed");
-    return EXIT_FAILURE;
+    	return EXIT_FAILURE;
 	}
 
 	/* Bind */
@@ -204,7 +228,7 @@ int main(int argc, char **argv){
 		connfd = accept(listenfd, (struct sockaddr*)&cli_addr, &clilen);
 
 		/* Check if max clients is reached */
-		if((cli_count + 1) == MAX_CLIENTS){
+		if( ( cli_count + 1 ) == MAX_CLIENTS){
 			printf("Max clients reached. Rejected: ");
 			print_client_addr(cli_addr);
 			printf(":%d\n", cli_addr.sin_port);

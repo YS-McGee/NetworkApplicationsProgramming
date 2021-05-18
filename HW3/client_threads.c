@@ -104,7 +104,7 @@ int main(int argc, char **argv){
 
   	// Connect to Server
   	int err = connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr));
-  	if (err == -1) {
+  	if (err < 0) {
 		printf("ERROR: connect\n");
 		return EXIT_FAILURE;
 	}
@@ -113,6 +113,7 @@ int main(int argc, char **argv){
 	send(sockfd, name, 32, 0);
 
 	printf("=== WELCOME TO THE CHATROOM ===\n");
+	printf("err: %d\n", err);
 
 	pthread_t send_msg_thread;
   	if(pthread_create(&send_msg_thread, NULL, (void *) send_msg_handler, NULL) != 0){
