@@ -36,7 +36,7 @@ typedef struct{
 	char name[32];
 } client_t;
 
-client_t *clients[MAX_CLIENTS], *off_cli[MAX_CLIENTS];
+client_t *clients[MAX_CLIENTS];
 
 /**
  * ! 靜態初始化
@@ -101,8 +101,10 @@ void queue_add(client_t *cl){
  * ! 3/7 Remove clients to queue
  * 
  */
-void queue_remove(int uid){
+void queue_remove(client_t *cl){
 	pthread_mutex_lock(&clients_mutex);
+
+	int uid = cl->uid;
 
 	for(int i=0; i < MAX_CLIENTS; ++i){
 		if(clients[i]){
@@ -144,11 +146,11 @@ void print_list() {
 			printf("%s uid: %d\n", clients[i]->name, clients[i]->uid);
 	}
 
-	printf("\n==========================\nOffline:\n--------------------------\n");
-	for(int i=0; i < MAX_CLIENTS; ++i) {
-		if(off_cli[i])
-			printf("%s uid: %d\n", off_cli[i]->name, off_cli[i]->uid);
-	}
+	// printf("\n==========================\nOffline:\n--------------------------\n");
+	// for(int i=0; i < MAX_CLIENTS; ++i) {
+	// 	if(off_cli[i])
+	// 		printf("%s uid: %d\n", off_cli[i]->name, off_cli[i]->uid);
+	// }
 	printf("\n\n");
 }
 
@@ -209,12 +211,12 @@ void *handle_client(void *arg){
 		bzero(buff_out, BUFFER_SZ);
 	}
 
-	print_list();
   	/* Delete client from queue and yield thread */
 	close(cli->sockfd);
-  	queue_remove(cli->uid);
+  	queue_remove(cli);
   	free(cli);
   	cli_count--;
+	print_list();
   	pthread_detach(pthread_self());
 
 	return NULL;
