@@ -4,6 +4,5 @@
 #include <signal.h>
 
 int main () {
-    int id = fork();
-    printf("Hello from %d\n", id);
+    printf("%s", "> ");
 }

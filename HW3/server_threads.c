@@ -36,7 +36,7 @@ typedef struct{
 	char name[32];
 } client_t;
 
-client_t *clients[MAX_CLIENTS];
+client_t *clients[MAX_CLIENTS], *off_cli[MAX_CLIENTS];
 
 /**
  * ! 靜態初始化
@@ -137,6 +137,21 @@ void send_message(char *s, int uid){
 	pthread_mutex_unlock(&clients_mutex);
 }
 
+void print_list() {
+	printf("\n==========================\nOnline:\n--------------------------\n");
+	for(int i=0; i < MAX_CLIENTS; ++i) {
+		if(clients[i])
+			printf("%s uid: %d\n", clients[i]->name, clients[i]->uid);
+	}
+
+	printf("\n==========================\nOffline:\n--------------------------\n");
+	for(int i=0; i < MAX_CLIENTS; ++i) {
+		if(off_cli[i])
+			printf("%s uid: %d\n", off_cli[i]->name, off_cli[i]->uid);
+	}
+	printf("\n\n");
+}
+
 /**
  * ! 1/7 Handle all communication with the client
  * 
@@ -150,13 +165,17 @@ void *handle_client(void *arg){
 	client_t *cli = (client_t *)arg;
 
 	// Name Validation
-	if(recv(cli->sockfd, name, 32, 0) <= 0 || strlen(name) <  2 || strlen(name) >= 32-1){
+	int receive = recv(cli->sockfd, name, 32, 0);
+	// Check for duplicate name
+
+	if( receive <= 0 || strlen(name) <  2 || strlen(name) >= 32-1){
 		printf("Didn't enter the name.\n");
 		leave_flag = 1;
 	} else{
 		strcpy(cli->name, name);
 		sprintf(buff_out, "%s has joined (uid %d)\n", cli->name, cli->uid);
 		printf("%s", buff_out);
+		print_list();
 		send_message(buff_out, cli->uid);
 	}
 
@@ -167,7 +186,7 @@ void *handle_client(void *arg){
 			break;
 		}
 
-		int receive = recv(cli->sockfd, buff_out, BUFFER_SZ, 0);
+		receive = recv(cli->sockfd, buff_out, BUFFER_SZ, 0);
 		if (receive > 0){
 			if(strlen(buff_out) > 0){
 				send_message(buff_out, cli->uid);
@@ -190,6 +209,7 @@ void *handle_client(void *arg){
 		bzero(buff_out, BUFFER_SZ);
 	}
 
+	print_list();
   	/* Delete client from queue and yield thread */
 	close(cli->sockfd);
   	queue_remove(cli->uid);
@@ -275,8 +295,9 @@ int main(int argc, char **argv){
 			send(connfd, buff_out, sizeof(buff_out), 0);
 			print_client_addr(cli_addr);
 			printf(":%d uid: %d\n", cli_addr.sin_port, cli->uid);
-
-			bzero(buff_out, BUFFER_SZ);
+			
+			//bzero(buff_out, BUFFER_SZ);
+			// ==3747==ERROR: AddressSanitizer: stack-buffer-overflow on address 0x7ffdf196fa40 at pc 0x7f0cc5004f2d bp 0x7ffdf196f920 sp 0x7ffdf196f0c8
 			close(connfd);
 			continue;
 		}
