@@ -4,7 +4,10 @@
  * ! MMMM
  * ? _Atomic
  * ? static
- * TODO: ttt
+ * ? pthread_detach()
+ * TODO: unicast
+ * TODO: list online user name for client
+ * TODO: offline msg
  * @param myParm this is parm
  */
 #include <sys/socket.h>
@@ -23,7 +26,7 @@
 #define BUFFER_SZ 2048
 
 static _Atomic unsigned int cli_count = 0;
-static int uid = 10;
+static int uid = 1;
 
 /* Client structure */
 typedef struct{
@@ -51,7 +54,7 @@ void str_overwrite_stdout() {
 }
 
 /**
- * ! 6/7 
+ * ! 6/7 string trim: \0 string terminator
  * 
  */
 void str_trim_lf (char* arr, int length) {
@@ -65,7 +68,7 @@ void str_trim_lf (char* arr, int length) {
 }
 
 /**
- * ! 5/7
+ * ! 5/7 Print ip addr
  * 
  */
 void print_client_addr(struct sockaddr_in addr){
@@ -152,7 +155,7 @@ void *handle_client(void *arg){
 		leave_flag = 1;
 	} else{
 		strcpy(cli->name, name);
-		sprintf(buff_out, "%s has joined\n", cli->name);
+		sprintf(buff_out, "%s has joined (uid %d)\n", cli->name, cli->uid);
 		printf("%s", buff_out);
 		send_message(buff_out, cli->uid);
 	}
@@ -168,17 +171,19 @@ void *handle_client(void *arg){
 		if (receive > 0){
 			if(strlen(buff_out) > 0){
 				send_message(buff_out, cli->uid);
-
 				str_trim_lf(buff_out, strlen(buff_out));
-				printf("%s -> %s\n", buff_out, cli->name);
+				printf("%s -> %s receive=%d\n", buff_out, cli->name, receive);
 			}
 		} else if (receive == 0 || strcmp(buff_out, "exit") == 0){
-			sprintf(buff_out, "%s has left\n", cli->name);
-			printf("%s", buff_out);
+			sprintf(buff_out, "%s has left (uid %d)\n", cli->name, cli->uid);
+			printf("%s receive=%d\n", buff_out, receive);
 			send_message(buff_out, cli->uid);
 			leave_flag = 1;
 		} else {
 			printf("ERROR: -1\n");
+			sprintf(buff_out, "%s has left (uid %d)\n", cli->name, cli->uid);
+			printf("%s receive=%d\n", buff_out, receive);
+			send_message(buff_out, cli->uid);
 			leave_flag = 1;
 		}
 
@@ -257,22 +262,24 @@ int main(int argc, char **argv){
 		socklen_t clilen = sizeof(cli_addr);
 		connfd = accept(listenfd, (struct sockaddr*)&cli_addr, &clilen);
 
-		/* Check if max clients is reached */
-		if( ( cli_count + 1 ) == MAX_CLIENTS){
-			printf("Max clients reached. Rejected: ");
-			char buff_out[] = "Max clients reached. Rejected: ";
-			send(listenfd, buff_out, sizeof(buff_out), 0);
-			print_client_addr(cli_addr);
-			printf(":%d\n", cli_addr.sin_port);
-			close(connfd);
-			continue;
-		}
-
 		/* Client settings */
 		client_t *cli = (client_t *)malloc(sizeof(client_t));
 		cli->address = cli_addr;
 		cli->sockfd = connfd;
 		cli->uid = uid++;
+
+		/* Check if max clients is reached */
+		if( ( cli_count + 1 ) == MAX_CLIENTS){
+			char buff_out[] = "Max clients reached. Rejected: ";
+			printf("%s", buff_out);
+			send(connfd, buff_out, sizeof(buff_out), 0);
+			print_client_addr(cli_addr);
+			printf(":%d uid: %d\n", cli_addr.sin_port, cli->uid);
+
+			bzero(buff_out, BUFFER_SZ);
+			close(connfd);
+			continue;
+		}
 
 		/* Add client to the queue and fork thread */
 		queue_add(cli);

@@ -1,3 +1,17 @@
+/**
+ * <Better Comments>
+ * * IMPORTANT
+ * ! MMMM
+ * ? signal(SIGINT, catch_ctrl_c_and_exit);
+ * ? sig_atomic_t
+ * ? volatile
+ * ? str_overwrite_stdout()
+ * TODO: unicast
+ * TODO: list online user name for client
+ * TODO: offline msg
+ * @param myParm this is parm
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -113,7 +127,6 @@ int main(int argc, char **argv){
 	send(sockfd, name, 32, 0);
 
 	printf("=== WELCOME TO THE CHATROOM ===\n");
-	printf("err: %d\n", err);
 
 	pthread_t send_msg_thread;
   	if(pthread_create(&send_msg_thread, NULL, (void *) send_msg_handler, NULL) != 0){
