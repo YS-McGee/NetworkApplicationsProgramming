@@ -96,6 +96,10 @@ int main(int argc, char **argv){
 	char *ip = "127.0.0.1";
 	int port = atoi(argv[1]);
 
+	/**
+	 * ! Ctl-c termination
+	 * link: https://www.geeksforgeeks.org/signals-c-language/
+	 */
 	signal(SIGINT, catch_ctrl_c_and_exit);
 
 	printf("Please enter your name: ");
@@ -104,6 +108,10 @@ int main(int argc, char **argv){
 
 	if (strlen(name) > 32 || strlen(name) < 2){
 		printf("Name must be less than 30 and more than 2 characters.\n");
+		return EXIT_FAILURE;
+	}
+	if(strstr(name, ":") || strstr(name, "all") || strstr(name, "exit") || strstr(name, "bye")) {
+		printf("Name cannot contain ':', 'exit', 'bye', 'all'\n");
 		return EXIT_FAILURE;
 	}
 

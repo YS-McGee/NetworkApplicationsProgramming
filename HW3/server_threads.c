@@ -33,6 +33,7 @@ typedef struct{
 	struct sockaddr_in address;
 	int sockfd;
 	int uid;
+	int is_online;
 	char name[32];
 } client_t;
 
@@ -90,6 +91,7 @@ void queue_add(client_t *cl){
 		// array 最小為空的 index
 		if(!clients[i]){
 			clients[i] = cl;
+			clients[i]->is_online = 1;
 			break;
 		}
 	}
@@ -142,15 +144,15 @@ void send_message(char *s, int uid){
 void print_list() {
 	printf("\n==========================\nOnline:\n--------------------------\n");
 	for(int i=0; i < MAX_CLIENTS; ++i) {
-		if(clients[i])
+		if(clients[i] != NULL && clients[i]->is_online == 1)
 			printf("%s uid: %d\n", clients[i]->name, clients[i]->uid);
 	}
 
-	// printf("\n==========================\nOffline:\n--------------------------\n");
-	// for(int i=0; i < MAX_CLIENTS; ++i) {
-	// 	if(off_cli[i])
-	// 		printf("%s uid: %d\n", off_cli[i]->name, off_cli[i]->uid);
-	// }
+	printf("\n==========================\nOffline:\n--------------------------\n");
+	for(int i=0; i < MAX_CLIENTS; ++i) {
+		if(clients[i] != NULL && clients[i]->is_online == 0)
+			printf("%s uid: %d\n", clients[i]->name, clients[i]->uid);
+	}
 	printf("\n\n");
 }
 
@@ -193,17 +195,21 @@ void *handle_client(void *arg){
 			if(strlen(buff_out) > 0){
 				send_message(buff_out, cli->uid);
 				str_trim_lf(buff_out, strlen(buff_out));
-				printf("%s -> %s receive=%d\n", buff_out, cli->name, receive);
+				printf("%s -> %s\n", buff_out, cli->name);
 			}
+			// if(strcmp(buff_out, "bye") == 0) {
+			// 	printf("hree\n");
+			// 	break;
+			// }
 		} else if (receive == 0 || strcmp(buff_out, "exit") == 0){
 			sprintf(buff_out, "%s has left (uid %d)\n", cli->name, cli->uid);
-			printf("%s receive=%d\n", buff_out, receive);
+			printf("%s\n", buff_out);
 			send_message(buff_out, cli->uid);
 			leave_flag = 1;
 		} else {
 			printf("ERROR: -1\n");
 			sprintf(buff_out, "%s has left (uid %d)\n", cli->name, cli->uid);
-			printf("%s receive=%d\n", buff_out, receive);
+			printf("%s\n", buff_out);
 			send_message(buff_out, cli->uid);
 			leave_flag = 1;
 		}
@@ -211,11 +217,16 @@ void *handle_client(void *arg){
 		bzero(buff_out, BUFFER_SZ);
 	}
 
-  	/* Delete client from queue and yield thread */
 	close(cli->sockfd);
-  	queue_remove(cli);
-  	free(cli);
-  	cli_count--;
+	/* Delete client from queue and yield thread */
+	if(leave_flag == 1) {
+		queue_remove(cli);
+  		free(cli);
+  		cli_count--;
+	} else {
+		// say bye, goes offline
+		cli->is_online = 0;
+	}
 	print_list();
   	pthread_detach(pthread_self());
 
@@ -289,6 +300,7 @@ int main(int argc, char **argv){
 		cli->address = cli_addr;
 		cli->sockfd = connfd;
 		cli->uid = uid++;
+		cli->is_online = 0;
 
 		/* Check if max clients is reached */
 		if( ( cli_count + 1 ) == MAX_CLIENTS){
