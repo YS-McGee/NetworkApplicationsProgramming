@@ -6,7 +6,6 @@
  * ? static
  * ? pthread_detach()
  * TODO: unicast
- * TODO: list online user name for client
  * TODO: offline msg
  * @param myParm this is parm
  */
@@ -22,7 +21,7 @@
 #include <sys/types.h>
 #include <signal.h>
 
-#define MAX_CLIENTS 4	// less than this number
+#define MAX_CLIENTS 5	// less than this number
 #define BUFFER_SZ 2048
 
 static _Atomic unsigned int cli_count = 0;
@@ -134,7 +133,8 @@ void send_message(char *s, int uid){
 				if (clients[i]->is_online == 0) {
 					// save offline_msg to buffer
 					//printf("check\n");
-					sprintf(clients[i]->offline_msg, "%s", s);
+					//sprintf(clients[i]->offline_msg, "%s", s);
+					strcat(clients[i]->offline_msg, s);
 					continue;
 				}
 				if(write(clients[i]->sockfd, s, strlen(s)) < 0){
@@ -151,8 +151,8 @@ void send_message(char *s, int uid){
 
 void print_list() {
 	// Avoid race condition at queue remove
-	sleep(0.5);
-	
+	//sleep(1);
+
 	printf("\n==========================\nOnline:\n--------------------------\n");
 	for(int i=0; i < MAX_CLIENTS; ++i) {
 		if(clients[i] != NULL && clients[i]->is_online == 1)
@@ -164,7 +164,7 @@ void print_list() {
 		if(clients[i] != NULL && clients[i]->is_online == 0)
 			printf("%s uid: %d\n", clients[i]->name, clients[i]->uid);
 	}
-	printf("Client count: %d\n\n", cli_count);
+	printf("Online Client count: %d\n\n", cli_count);
 }
 
 void send_list(client_t *cl) {
@@ -190,7 +190,7 @@ void send_list(client_t *cl) {
  */
 void *handle_client(void *arg){
 
-	char buff_out[BUFFER_SZ];
+	char buff_out[BUFFER_SZ], off_msg[1];
 	char name[32];
 	int leave_flag = 0;
 	int name_dup = 0;
@@ -213,12 +213,17 @@ void *handle_client(void *arg){
 						leave_flag = 1;
 					} else {
 						// back online
+						sprintf(cli->offline_msg, "%s\n", clients[i]->offline_msg);
+						
 						clients[i]->is_online = 1;
+						// printf("%s uid: %d, sockfd: %d\nmsg:%s\n", 
+						// 	clients[i]->name, clients[i]->uid, clients[i]->sockfd, cli->offline_msg);
 						//queue_remove(clients[i]);
 					}
 				}
 			}
 		}
+		// dup name send
 		sprintf(buff_out, "%d", name_dup);
 		if(write(cli->sockfd, buff_out, strlen(buff_out)) < 0) {
 			perror("ERROR: write to descriptor failed");
@@ -226,6 +231,21 @@ void *handle_client(void *arg){
 		bzero(buff_out, BUFFER_SZ);
 		if(name_dup != 1) {
 			strcpy(cli->name, name);
+			// offline_msg send
+			if(strlen(cli->offline_msg) != 0) {
+				if(write(cli->sockfd, cli->offline_msg, strlen(cli->offline_msg)) < 0) {
+					perror("ERROR: write to descriptor failed");
+				}
+				bzero(cli->offline_msg, BUFFER_SZ);
+			} else {
+				sprintf(buff_out, "%s", "0-0");
+				//bzero(buff_out, BUFFER_SZ);
+				if(write(cli->sockfd, buff_out, strlen(buff_out)) < 0) {
+					perror("ERROR: write to descriptor failed");
+				}
+			}
+			bzero(buff_out, BUFFER_SZ);
+			//sprintf(buff_out, "%s has joined (uid %d) (sockfd: %d)\n%s\n", cli->name, cli->uid, cli->sockfd, cli->offline_msg);
 			sprintf(buff_out, "%s has joined (uid %d)\n", cli->name, cli->uid);
 			printf("%s", buff_out);
 			print_list();
@@ -239,6 +259,7 @@ void *handle_client(void *arg){
 		if (leave_flag) {
 			break;
 		}
+		
 		receive = recv(cli->sockfd, buff_out, BUFFER_SZ, 0);
 		if (receive > 0){
 			if(strstr(buff_out, "list")) {
@@ -255,10 +276,16 @@ void *handle_client(void *arg){
 				print_list();
 				while(1) {
 					if(cli->is_online == 1) {
-
-						printf("%s uid:%d terminated\n", cli->name, cli->uid);
+						// if(strlen(cli->offline_msg) != 0) {
+						// 	printf("%s (sockfd: %d uid: %d)have offline msg\n%s\n", 
+						// 		cli->name, cli->sockfd, cli->uid, cli->offline_msg);
+						// 	bzero(cli->offline_msg, BUFFER_SZ);
+						// }
+						// printf("%s uid:%d terminated\n", cli->name, cli->uid);
+						bzero(buff_out, BUFFER_SZ);
 						close(cli->sockfd);
 						queue_remove(cli);
+						free(cli);
 						pthread_detach(pthread_self());
 
 						return NULL;
@@ -284,7 +311,7 @@ void *handle_client(void *arg){
 
 		bzero(buff_out, BUFFER_SZ);
 	}
-
+	bzero(cli->offline_msg, BUFFER_SZ);
 	close(cli->sockfd);
 	/* Delete client from queue and yield thread */
 	if(leave_flag == 1) {
@@ -367,6 +394,7 @@ int main(int argc, char **argv){
 		cli->sockfd = connfd;
 		cli->uid = uid++;
 		cli->is_online = 0;
+		cli->offline_msg[0] = 0;
 
 		/* Check if max clients is reached */
 		if( ( cli_count + 1 ) == MAX_CLIENTS){
