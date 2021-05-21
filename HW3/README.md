@@ -10,6 +10,8 @@ run
 > $ ./clinet_threads [port]
 >> Enter Your Name: Client2
 
+> Client name cannot contain ":", "all", "bye", "exit"
+
 .\
 .\
 .

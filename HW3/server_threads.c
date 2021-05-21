@@ -35,6 +35,7 @@ typedef struct{
 	int uid;
 	int is_online;
 	char name[32];
+	char offline_msg[BUFFER_SZ];
 } client_t;
 
 client_t *clients[MAX_CLIENTS];
@@ -130,7 +131,14 @@ void send_message(char *s, int uid){
 	for(int i=0; i<MAX_CLIENTS; ++i){
 		if(clients[i]){
 			if(clients[i]->uid != uid){
+				if (clients[i]->is_online == 0) {
+					// save offline_msg to buffer
+					//printf("check\n");
+					sprintf(clients[i]->offline_msg, "%s", s);
+					continue;
+				}
 				if(write(clients[i]->sockfd, s, strlen(s)) < 0){
+					printf("%s %d\n", clients[i]->name, clients[i]->uid);
 					perror("ERROR: write to descriptor failed");
 					break;
 				}
@@ -142,6 +150,9 @@ void send_message(char *s, int uid){
 }
 
 void print_list() {
+	// Avoid race condition at queue remove
+	sleep(0.5);
+	
 	printf("\n==========================\nOnline:\n--------------------------\n");
 	for(int i=0; i < MAX_CLIENTS; ++i) {
 		if(clients[i] != NULL && clients[i]->is_online == 1)
@@ -153,7 +164,24 @@ void print_list() {
 		if(clients[i] != NULL && clients[i]->is_online == 0)
 			printf("%s uid: %d\n", clients[i]->name, clients[i]->uid);
 	}
-	printf("\n\n");
+	printf("Client count: %d\n\n", cli_count);
+}
+
+void send_list(client_t *cl) {
+	pthread_mutex_lock(&clients_mutex);
+
+	char s[10];
+	
+	for(int i=0; i < MAX_CLIENTS; ++i) {
+		if(clients[i] != NULL) {
+			sprintf(s, "%s %d\n", clients[i]->name, clients[i]->is_online);
+			if(write(cl->sockfd, s, strlen(s)) < 0) {
+				perror("ERROR: write to descriptor failed");
+			}
+		}
+	}
+
+	pthread_mutex_unlock(&clients_mutex);
 }
 
 /**
@@ -161,26 +189,48 @@ void print_list() {
  * 
  */
 void *handle_client(void *arg){
+
 	char buff_out[BUFFER_SZ];
 	char name[32];
 	int leave_flag = 0;
+	int name_dup = 0;
 
 	cli_count++;
 	client_t *cli = (client_t *)arg;
 
 	// Name Validation
 	int receive = recv(cli->sockfd, name, 32, 0);
-	// Check for duplicate name
-
 	if( receive <= 0 || strlen(name) <  2 || strlen(name) >= 32-1){
 		printf("Didn't enter the name.\n");
 		leave_flag = 1;
 	} else{
-		strcpy(cli->name, name);
-		sprintf(buff_out, "%s has joined (uid %d)\n", cli->name, cli->uid);
-		printf("%s", buff_out);
-		print_list();
-		send_message(buff_out, cli->uid);
+		// Check for duplicate name && is_from offline
+		for(int i=0; i < MAX_CLIENTS; ++i) {
+			if(clients[i] != NULL) {
+				if(!strcmp(clients[i]->name, name)) {
+					if(clients[i]->is_online == 1) {
+						name_dup = 1;
+						leave_flag = 1;
+					} else {
+						// back online
+						clients[i]->is_online = 1;
+						//queue_remove(clients[i]);
+					}
+				}
+			}
+		}
+		sprintf(buff_out, "%d", name_dup);
+		if(write(cli->sockfd, buff_out, strlen(buff_out)) < 0) {
+			perror("ERROR: write to descriptor failed");
+		}
+		bzero(buff_out, BUFFER_SZ);
+		if(name_dup != 1) {
+			strcpy(cli->name, name);
+			sprintf(buff_out, "%s has joined (uid %d)\n", cli->name, cli->uid);
+			printf("%s", buff_out);
+			print_list();
+			send_message(buff_out, cli->uid);
+		}
 	}
 
 	bzero(buff_out, BUFFER_SZ);
@@ -189,18 +239,36 @@ void *handle_client(void *arg){
 		if (leave_flag) {
 			break;
 		}
-
 		receive = recv(cli->sockfd, buff_out, BUFFER_SZ, 0);
 		if (receive > 0){
-			if(strlen(buff_out) > 0){
+			if(strstr(buff_out, "list")) {
+				send_list(cli);
+				str_trim_lf(buff_out, strlen(buff_out));
+				printf("%s asked for %s\n", cli->name, buff_out);
+			} else if (strstr(buff_out, "bye")) {
+				cli->is_online = 0;
+				sprintf(buff_out, "%s is offline (uid %d)\n", cli->name, cli->uid);
+				printf("%s\n", buff_out);
+				send_message(buff_out, cli->uid);
+				cli_count--;
+
+				print_list();
+				while(1) {
+					if(cli->is_online == 1) {
+
+						printf("%s uid:%d terminated\n", cli->name, cli->uid);
+						close(cli->sockfd);
+						queue_remove(cli);
+						pthread_detach(pthread_self());
+
+						return NULL;
+					} 
+				}
+			} else if(strlen(buff_out) > 0){
 				send_message(buff_out, cli->uid);
 				str_trim_lf(buff_out, strlen(buff_out));
-				printf("%s -> %s\n", buff_out, cli->name);
+				printf("%s: %s\n", cli->name, buff_out);
 			}
-			// if(strcmp(buff_out, "bye") == 0) {
-			// 	printf("hree\n");
-			// 	break;
-			// }
 		} else if (receive == 0 || strcmp(buff_out, "exit") == 0){
 			sprintf(buff_out, "%s has left (uid %d)\n", cli->name, cli->uid);
 			printf("%s\n", buff_out);
@@ -223,12 +291,10 @@ void *handle_client(void *arg){
 		queue_remove(cli);
   		free(cli);
   		cli_count--;
-	} else {
-		// say bye, goes offline
-		cli->is_online = 0;
 	}
 	print_list();
-  	pthread_detach(pthread_self());
+
+	pthread_detach(pthread_self());
 
 	return NULL;
 }

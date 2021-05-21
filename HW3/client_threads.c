@@ -52,16 +52,31 @@ void catch_ctrl_c_and_exit(int sig) {
 void send_msg_handler() {
   	char message[LENGTH] = {};
 	char buffer[LENGTH + 32] = {};
+	
 
   	while(1) {
   		str_overwrite_stdout();
     	fgets(message, LENGTH, stdin);
     	str_trim_lf(message, LENGTH);
 
-    	if (strcmp(message, "exit") == 0) {
+		/*
+		if(strstr(message, ">")) {
+
+		} else {
+
+		}
+
+
+		*/
+
+    	if (!strcmp(message, "exit")) {
 			break;
-    	} else {
-      		sprintf(buffer, "%s: %s\n", name, message);
+    	} else if(!strcmp(message, "bye")) {
+			sprintf(buffer, "%s\n", message);
+      		send(sockfd, buffer, strlen(buffer), 0);
+			break;  
+		} else {
+      		sprintf(buffer, "%s\n", message);
       		send(sockfd, buffer, strlen(buffer), 0);
     	}
 
@@ -73,6 +88,14 @@ void send_msg_handler() {
 
 void recv_msg_handler() {
 	char message[LENGTH] = {};
+
+	// Check for dup name
+	int receive = recv(sockfd, message, LENGTH, 0);
+	if(strcmp(message, "1") == 0) {
+		printf("Name already used!!\n");
+		catch_ctrl_c_and_exit(2);
+	}
+
   	while (1) {
 	int receive = recv(sockfd, message, LENGTH, 0);
     if (receive > 0) {
@@ -110,8 +133,8 @@ int main(int argc, char **argv){
 		printf("Name must be less than 30 and more than 2 characters.\n");
 		return EXIT_FAILURE;
 	}
-	if(strstr(name, ":") || strstr(name, "all") || strstr(name, "exit") || strstr(name, "bye")) {
-		printf("Name cannot contain ':', 'exit', 'bye', 'all'\n");
+	if(strstr(name, ">") || strstr(name, "all") || strstr(name, "exit") || strstr(name, "bye") || strstr(name, "list")) {
+		printf("Name cannot contain '>', 'exit', 'bye', 'all', 'list'\n");
 		return EXIT_FAILURE;
 	}
 

@@ -4,12 +4,20 @@
 #include <signal.h>
 #include <string.h>
 
-int main () {
-    char *s1 = ": ";
-    char *s2 = "exit";
-    char *s3 = ":";
+#define LENGTH 2048
 
-    if(strstr(s1, s2) || strstr(s1, s3)) {
-        printf("Contains\n");
+int main () {
+    char *src = "123";
+	char dest[LENGTH];
+
+    while(1) {
+        printf("\n");
+        //fgets(src, LENGTH, stdin);
+        strcat(dest, src);
+	    printf(dest);
+        printf("\n\n");
+        sleep(1);
     }
+
+	return 0;
 }
