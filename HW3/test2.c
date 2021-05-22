@@ -7,17 +7,14 @@
 #define LENGTH 2048
 
 int main () {
-    char *src = "123";
-	char dest[LENGTH];
+    char string[50] = "msg >c1> c2";
+   // Extract the first token
+   char * token1, *token2;
+   token1 = strtok(string, " > ");
+   // loop through the string to extract all other tokens
+   
+    token2 = strtok(NULL, " > ");
+    printf("token1=%s=\ntoken2=%s=\n", token1, token2);
 
-    while(1) {
-        printf("\n");
-        //fgets(src, LENGTH, stdin);
-        strcat(dest, src);
-	    printf(dest);
-        printf("\n\n");
-        sleep(1);
-    }
-
-	return 0;
+    return 0;
 }

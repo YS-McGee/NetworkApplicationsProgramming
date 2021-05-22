@@ -21,7 +21,7 @@
 #include <sys/types.h>
 #include <signal.h>
 
-#define MAX_CLIENTS 5	// less than this number
+#define MAX_CLIENTS 4	// less than this number
 #define BUFFER_SZ 2048
 
 static _Atomic unsigned int cli_count = 0;
@@ -190,7 +190,7 @@ void send_list(client_t *cl) {
  */
 void *handle_client(void *arg){
 
-	char buff_out[BUFFER_SZ], off_msg[1];
+	char buff_out[BUFFER_SZ];
 	char name[32];
 	int leave_flag = 0;
 	int name_dup = 0;
@@ -265,7 +265,7 @@ void *handle_client(void *arg){
 			if(strstr(buff_out, "list")) {
 				send_list(cli);
 				str_trim_lf(buff_out, strlen(buff_out));
-				printf("%s asked for %s\n", cli->name, buff_out);
+				printf("%s asked for list\n", cli->name);
 			} else if (strstr(buff_out, "bye")) {
 				cli->is_online = 0;
 				sprintf(buff_out, "%s is offline (uid %d)\n", cli->name, cli->uid);
@@ -292,9 +292,44 @@ void *handle_client(void *arg){
 					} 
 				}
 			} else if(strlen(buff_out) > 0){
-				send_message(buff_out, cli->uid);
-				str_trim_lf(buff_out, strlen(buff_out));
-				printf("%s: %s\n", cli->name, buff_out);
+				if(strstr(buff_out, ">")) {
+					str_trim_lf(buff_out, strlen(buff_out));
+					char *name, *msg, whole_msg[BUFFER_SZ];
+					msg = strtok(buff_out, ">");
+					name = strtok(NULL, "> ");
+					
+					int found = 0;
+					for(int i=0; i < MAX_CLIENTS; ++i) {
+						// find target name
+						if(clients[i] != NULL && !strcmp(clients[i]->name, name)) {
+							// send msg on/off
+							//printf("Name:=%s= found\nmsg=%s=\n", name, msg);
+							printf("Direct MSG\n%s: %s -> %s\n", cli->name, msg, name);
+							if(clients[i]->is_online == 1) {
+								sprintf(whole_msg, "Direct MSG\n%s: %s\n", cli->name, msg);
+								send(clients[i]->sockfd, whole_msg, strlen(whole_msg), 0);
+							} else {
+								//strcat(clients[i]->offline_msg, s);
+								sprintf(whole_msg, "Direct MSG\n%s: %s\n", cli->name, msg);
+								strcat(cli->offline_msg, whole_msg);
+							}
+							found = 1;
+						}
+					}
+					// name doesnot exist
+					if(found == 0) {
+						sprintf(buff_out, "Name: %s not exist\n", name);
+						send(cli->sockfd, buff_out, strlen(buff_out), 0);
+					}
+
+					bzero(buff_out, BUFFER_SZ);
+					continue;
+				}
+				char *n_msg[1024];
+				sprintf(n_msg, "%s: %s", cli->name, buff_out);
+				send_message(n_msg, cli->uid);
+				str_trim_lf(n_msg, strlen(n_msg));
+				printf("%s\n", n_msg);
 			}
 		} else if (receive == 0 || strcmp(buff_out, "exit") == 0){
 			sprintf(buff_out, "%s has left (uid %d)\n", cli->name, cli->uid);
