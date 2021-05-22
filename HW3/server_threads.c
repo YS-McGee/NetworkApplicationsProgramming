@@ -311,7 +311,7 @@ void *handle_client(void *arg){
 							} else {
 								//strcat(clients[i]->offline_msg, s);
 								sprintf(whole_msg, "Direct MSG\n%s: %s\n", cli->name, msg);
-								strcat(cli->offline_msg, whole_msg);
+								strcat(clients[i]->offline_msg, whole_msg);
 							}
 							found = 1;
 						}
